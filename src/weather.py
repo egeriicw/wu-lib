@@ -4,14 +4,10 @@ import sys
 import csv
 import StringIO
 
-monthdays = {'1':31,'2':28,'3':31,'4':30,'5':31,'6':30,'7':31,'8':31,'9':30,'10':31,'11':30,'12':31}
-
-## Set parameters for GET request
-#parameters = {'key1' : 'value1', 'key2' : 'value2'}
-
 class WeatherData:
 
     def __init__(self, line):
+        print "WeatherData loaded."
         self.month = ""
         self.day = ""
         self.year = ""
@@ -113,6 +109,8 @@ class WeatherStation:
         self.longitudeHours = ""
         self.longitudeMin = ""
         self.longitudeSec = ""
+
+        print "WeatherStation loaded..."
         
     def getStationName(self):
         return self.stationName
@@ -139,7 +137,6 @@ class Weather:
     def __init__(self):
         self.station = WeatherStation()
         self.data = []
-        self.setRemoteWUWeather()
 
     def getData(self):
         print "...getData()..."
