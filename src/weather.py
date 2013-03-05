@@ -174,7 +174,7 @@ class Weather:
 
 def main(arg):
     temp_data = []
-    authkey = '7d0d04e83a80b403' 
+    authkey = ""
     tdata = {}
     
     weather = Weather()
