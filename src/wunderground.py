@@ -2,7 +2,6 @@ import requests
 import json
 import sys
 import csv
-import StringIO
 
 monthdays = {'1':31,'2':28,'3':31,'4':30,'5':31,'6':30,'7':31,'8':31,'9':30,'10':31,'11':30,'12':31}
 
@@ -15,20 +14,9 @@ class WeatherData:
         self.month = ""
         self.day = ""
         self.year = ""
-        self.hour = ""
-        self.minute = ""
         
-        # Temperature Data
-
-        # Dry bulb air temperature
-        self.tempDBRAW = ""
-        self.tempDBF = ""
-        self.tempDBC = ""
-
-        # Wet bulb air temperature
-        self.tempWBRAW = ""
-        self.tempWBF = ""
-        self.tempWBC = ""
+        # Weather Data
+        self.sourceFlag = ""
 
         self.setWeatherData(line)
 
@@ -36,60 +24,15 @@ class WeatherData:
         self.sourceFlag = line[27]
 
     def setWeatherData(self, line):
-        # Set Month, Day, Year
-        # File format: YYYYMMDD
-        self.month = line[19:21] 
-        self.day = line[21:23]
-        self.year = line[15:19]
-        
-        # Set Hour, Minute
-        # File format: HHMM in 24 hour clock
-        self.hour = line[23:25]
-        self.minute = line[25:27]
-
-        # Set temperature data
-        self.tempDBRAW = line[87:92]
-        self.tempWBRAW = line[93:98]
-
-        self.tempDBC = float(self.tempDBRAW[1:])/10.
-        self.tempWBC = float(self.tempWBRAW[1:])/10.
-
-        if self.tempDBRAW[0] == '-':
-            self.tempDBC = self.tempDBC * -1.
-        if self.tempWBRAW[0] == '-':
-            self.tempWBC = self.tempWBC * -1.
-
-        self.tempDBF = self.CtoF(self.tempDBC)
-        self.tempWBF = self.CtoF(self.tempWBC)
-
-    # Temperature Conversion Functions
-    def FtoC(self, data):
-        return (data - 32) / 1.8
-
-    def CtoF(self, data):
-        return (data * (9/5)) + 32
-    
-    def CtoK(self, data):
-        # TODO
-        return 0
-
-    def KtoC(self, data):
-        # TODO
-        return 0
-
-    def FtoR(self, data):
-        # TODO
-        return 0
-
-    def RtoF(self, data):
-        # TODO
-        return 0
+        self.month = line[20:21] 
+        self.day = line[22:23]
+        self.year = line[16:19]
 
     def getWeatherData(self):
         return self.month, self.day, self.year
 
     def printWeatherData(self):
-        print "Date: ", self.month + "/" + self.day + "/" + self.year + " " + self.hour + ":" + self.minute + "   DB_F: " + str(self.tempDBF) + "::DB_C: " + str(self.tempDBC) + ", WB_F: " + str(self.tempWBF) + "::WB_C: " + str(self.tempWBC)
+        print "Date: ", self.month + "/" + self.day + "/" + self.year
             
         
     def throttle(self):
@@ -113,15 +56,6 @@ class WeatherStation:
         self.longitudeHours = ""
         self.longitudeMin = ""
         self.longitudeSec = ""
-        
-    def getStationName(self):
-        return self.stationName
-
-    def getStationUSAFIdentifier(self):
-        return self.stationUSAFIdentifier
-
-    def getStationWBANCode(self):
-        return self.stationWBANCode
 
     def getWeatherStation(self):
         print "Station Name: ", self.stationName
@@ -139,7 +73,7 @@ class Weather:
     def __init__(self):
         self.station = WeatherStation()
         self.data = []
-        self.setRemoteWUWeather()
+        self.setRemoteWUWeather("7d0d04e83a80b403")
 
     def getData(self):
         print "...getData()..."
@@ -155,16 +89,19 @@ class Weather:
         setStation = True
         print "..setLocalNOAAWeather()..."
         with open('../data/input/' + filename, 'rb') as infile:
-                        
-            for line in infile:
+            lines = infile.read()
+            
+            for line in lines:
                 
+                print "Line: ", line
                 if setStation == True:
                     self.station.setWeatherStation(line)
                     setStation = False
                 else:
                     self.data.append(WeatherData(line))
             self.station.getWeatherStation()
-          
+            print "Data: ", self.data
+        
     def setRemoteNOAAWeather(self):
         # TODO
         print "...setRemoteNOAAWeather()..."
@@ -183,12 +120,70 @@ class Weather:
 
 def main(arg):
     temp_data = []
-    authkey = ""
+    authkey = '7d0d04e83a80b403' 
     tdata = {}
     
     weather = Weather()
     weather.setLocalNOAAWeather('724050-13743-2011')
     weather.getData()
 
+    """
+    print arg
+
+    mo = '10'
+    dy = '18'
+    yr = '2010'
+
+    # Save JSON object as text in a list
+    temp_data = getWUTempHistory(authkey, '10', '18', '2010').text
+
+    datetext = str(mo + "/" + dy + "/" + yr)
+    print datetext
+
+    tdata.update({datetext:temp_data})
+    
+
+
+    # json.loads converts a string to a json object.
+    # json.dumps "prettifies" the json object into a useable form
+
+    #test = json.dumps(json.loads(tdata['10/18/2010']), ensure_ascii=True)
+
+    #writeJSON(test)
+
+    #testy = readJSON()
+
+    #print json.dumps(json.loads(testy))
+
+    #for m, d in monthdays.iteritems():
+    #    print "Month: ", m, " Days: ", d
+    
+    #return 0
+
+#def getWUTempHistory(key, mo, dy, yr):
+    # Requests data from Weather Underground site
+    # Returns json object
+
+#    url = 'http://api.wunderground.com/api/' + key + '/history_'+ yr + mo + dy + '/q/DCA.json'
+
+    # Returns a json object
+#    r = requests.get(url)
+
+#    return r
+
+def writeCSV(data):
+    with open('../data/output/tempcsv.csv', 'wb') as outfile:
+        writer = csv.writer(outfile, delimiter='\n')
+        writer.writerow(data)
+
+def writeJSON(data):
+    with open('../data/output/tempdata.json', 'wb') as outfile:
+        outfile.write(data)
+
+def readJSON():
+    with open('../data/output/tempdata.json', 'r') as infile:
+        data = infile.read()
+        return 
+    """
 if __name__ == "__main__":
     sys.exit(not main(sys.argv))
