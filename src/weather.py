@@ -1,13 +1,20 @@
+#! /usr/bin/env python
+
 import requests
 import json
 import sys
 import csv
 import StringIO
+import pandas as pd
+import datetime as dt
+from dateutil.parser import parse
+import numpy as np
+
 
 class WeatherData:
 
     def __init__(self, line):
-        print "WeatherData loaded."
+        #print "WeatherData loaded."
         self.month = ""
         self.day = ""
         self.year = ""
@@ -46,38 +53,65 @@ class WeatherData:
         # Set temperature data
         self.tempDBRAW = line[87:92]
         self.tempWBRAW = line[93:98]
+        
 
-        self.tempDBC = float(self.tempDBRAW[1:])/10.
-        self.tempWBC = float(self.tempWBRAW[1:])/10.
+        if self.tempDBRAW[1:] != '9999':
 
-        if self.tempDBRAW[0] == '-':
-            self.tempDBC = self.tempDBC * -1.
-        if self.tempWBRAW[0] == '-':
-            self.tempWBC = self.tempWBC * -1.
+            self.tempDBC = float(self.tempDBRAW[1:])/10.
+            
+            if self.tempDBRAW[0] == '-':
+                self.tempDBC = self.tempDBC * -1.
+            self.tempDBF = self.CtoF(self.tempDBC)
+        else:
+            self.tempDBC = np.nan
+            self.tempDBF = np.nan
 
-        self.tempDBF = self.CtoF(self.tempDBC)
-        self.tempWBF = self.CtoF(self.tempWBC)
+        if self.tempWBRAW[1:] != '9999':
+            self.tempWBC = float(self.tempWBRAW[1:])/10.
+            if self.tempWBRAW[0] == '-':
+                self.tempWBC = self.tempWBC * -1.
+            self.tempWBF = self.CtoF(self.tempWBC)
+
+        else:
+            self.tempWBC = np.nan
+            self.tempWBF = np.nan
+
+        #print "DB: ", self.tempDBRAW, self.tempDBF
+        #print "WB: ", self.tempWBRAW, self.tempWBF
+
 
     # Temperature Conversion Functions
     def FtoC(self, data):
+        # Convert Fahrenheit to Celsius
+        
         return (data - 32) / 1.8
 
     def CtoF(self, data):
+        # Convert Celsius to Fahrenheit
+        
         return (data * (9/5)) + 32
     
     def CtoK(self, data):
+        # Convert Celsius to Kelvin
+
         # TODO
         return 0
 
     def KtoC(self, data):
+        # Convert Kelvin to Celsius
+
         # TODO
         return 0
 
     def FtoR(self, data):
-        # TODO
+        # Convert Fahrenheit to Rankine
+
+        #TODO
         return 0
 
     def RtoF(self, data):
+        # Convert Rankine to Fahrenheit
+
         # TODO
         return 0
 
@@ -87,9 +121,23 @@ class WeatherData:
     def printWeatherData(self):
         print "Date: ", self.month + "/" + self.day + "/" + self.year + " " + self.hour + ":" + self.minute + "   DB_F: " + str(self.tempDBF) + "::DB_C: " + str(self.tempDBC) + ", WB_F: " + str(self.tempWBF) + "::WB_C: " + str(self.tempWBC)
             
+
+    def getDateTime(self):
+        return dt.datetime(int(self.year), int(self.month), int(self.day), int(self.hour), int(self.minute))
+    
+    def getDBTemperature(self):
+        return self.tempDBF
+
         
     def throttle(self):
+        # Throttling keeps Weather Underground API access within
+        # free levels by scheduling how many times per minute and day
+        # the API is called.
+        #
+        # Useful resource for scheduling:
+        #   http://docs.python.org/2/library/sched.html
         print "Throttling..."
+        
         
 class WeatherStation:
     def __init__(self):
@@ -150,6 +198,7 @@ class Weather:
     def setLocalNOAAWeather(self, filename):
         # TODO
         setStation = True
+        print filename
         print "..setLocalNOAAWeather()..."
         with open('../data/input/' + filename, 'rb') as infile:
                         
@@ -165,6 +214,10 @@ class Weather:
     def setRemoteNOAAWeather(self):
         # TODO
         print "...setRemoteNOAAWeather()..."
+        # Resources for FTP & gz decompression:
+        #   http://www.blog.pythonlibrary.org/2012/07/19/python-101-downloading-a-file-with-ftplib/
+        #   http://docs.python.org/2/library/zlib.html#module-zlib
+        
   
     def setLocalWUWeather(self):
         # TODO
@@ -178,14 +231,56 @@ class Weather:
             print "Weather Underground Authentication Key Required."
 
 
+    def toTimeSeries(self):
+        # Returns PANDAS TimeSeries object
+
+        tWeatherDatetime = []
+        tWeatherTemperature = []
+
+        for x in self.data:
+            tWeatherDatetime.append(x.getDateTime())
+            tWeatherTemperature.append(x.getDBTemperature())    
+
+
+        #print tWeatherDatetime
+        #print tWeatherTemperature        
+
+        tsWeather = pd.Series(tWeatherTemperature, index=tWeatherDatetime)
+
+        tsWeather.to_csv('../data/output/' + 'originaltest.csv', sep=',')
+
+        # print tsWeather
+        # First Date of timeseries
+        #pd.to_datetime(str(tsWeather.index[0])).year
+        # Last Date of timeseries
+        #pd.to_datetime(str(tsWeather.index[-1])).year
+        #print pd.to_datetime(str(tsWeather.index[0])).date, type(tsWeather[0])
+        #print type(tsWeather)
+        #print tsWeather.index.dtype
+
+        # tsWeather.plot()
+
+        #return tsWeather        
+
+        # resampling
+        f = lambda x: float(np.mean(x))
+
+        # return resampled data
+        return tsWeather.resample('30min', how=f, fill_method='ffill')
+
+    def toCSV(self, data):
+        data.to_csv('../data/output/' + 'resampletest.csv', sep=',')
+
 def main(arg):
-    temp_data = []
     authkey = ""
-    tdata = {}
-    
+        
     weather = Weather()
     weather.setLocalNOAAWeather('724050-13743-2011')
-    weather.getData()
+    #weather.getData()
+    newfile = weather.toTimeSeries()
+
+    weather.toCSV(newfile)
+
 
 if __name__ == "__main__":
     sys.exit(not main(sys.argv))

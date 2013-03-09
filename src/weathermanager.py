@@ -4,6 +4,8 @@ class WeatherManager:
 
     def __init__(self):
         self.weather = Weather()
+        self.weather.setLocalNOAAWeather('724050-13743-2011')
+        self.weather.getData()
 
     # run through checks of various data sources.
     # Check for json data file
